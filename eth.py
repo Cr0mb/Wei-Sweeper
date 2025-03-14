@@ -75,7 +75,7 @@ def generate_wallets(option):
                 print(f"{Fore.RED}{eth_address}: Balance check failed{Style.RESET_ALL}")
 
             print(f"{Fore.CYAN}{'=' * 40}{Style.RESET_ALL}\n")
-            time.sleep(2)
+            time.sleep(1)
     except KeyboardInterrupt:
         print(f"\n{Fore.RED}Process stopped by user. Exiting...{Style.RESET_ALL}")
 
