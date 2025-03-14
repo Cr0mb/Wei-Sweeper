@@ -11,46 +11,56 @@ from web3 import Web3
 
 init(autoreset=True)
 
-
 BLOCKCYPHER_API_URL = "https://api.blockcypher.com/v1/eth/main/addrs/{}"
+ETHPLORER_API_URL = "https://api.ethplorer.io/getAddressInfo/{}?apiKey=freekey"
 
 def generate_mnemonic(num_words=12):
-    """Generates a 12 or 24-word BIP39 mnemonic."""
     if num_words not in [12, 24]:
         raise ValueError(f"{Fore.RED}Error: Choose 12 or 24 words only{Style.RESET_ALL}")
     return Bip39MnemonicGenerator().FromWordsNumber(num_words)
 
 def derive_eth_address(mnemonic):
-    """Derives an Ethereum address from a given mnemonic."""
     seed_bytes = Bip39SeedGenerator(mnemonic).Generate()
     bip44_eth = Bip44.FromSeed(seed_bytes, Bip44Coins.ETHEREUM)
     eth_address = bip44_eth.Purpose().Coin().Account(0).Change(Bip44Changes.CHAIN_EXT).AddressIndex(0).PublicKey().ToAddress()
     return to_checksum_address(eth_address), mnemonic.ToStr()
 
 def check_eth_balance(address):
-    """Checks Ethereum balance using BlockCypher API."""
-    url = BLOCKCYPHER_API_URL.format(address)
     try:
+        url = BLOCKCYPHER_API_URL.format(address)
         response = requests.get(url, timeout=10)
         data = response.json()
 
         if "balance" in data:
             balance_wei = data["balance"]
-            balance_eth = balance_wei / 1e18  # Convert wei to ETH
+            balance_eth = balance_wei / 1e18
+            if balance_eth == 0:
+                return 0, 0
+            return balance_eth, balance_wei
+    except Exception as e:
+        print(f"BlockCypher API failed: {e}")
+
+    try:
+        url = ETHPLORER_API_URL.format(address)
+        response = requests.get(url, timeout=10)
+        data = response.json()
+
+        if "ETH" in data and "balance" in data["ETH"]:
+            balance_wei = int(data["ETH"]["balance"])
+            balance_eth = balance_wei / 1e18
             return balance_eth, balance_wei
         else:
+            print(f"Ethplorer API Error: Balance not found or other error")
             return None, None
     except Exception as e:
-        print(f"Error checking balance: {e}")
+        print(f"Ethplorer API failed: {e}")
         return None, None
 
 def save_wallet(mnemonic, address, balance_eth):
-    """Saves wallets with a non-zero balance to a file."""
     with open("wallets.txt", "a") as f:
         f.write(f"Mnemonic: {mnemonic}\nAddress: {address}\nBalance: {balance_eth:.8f} ETH\n\n")
 
 def generate_wallets(option):
-    """Main function to continuously generate wallets and check balances."""
     try:
         while True:
             num_words = 12 if option == "12" else 24 if option == "24" else random.choice([12, 24])
@@ -75,7 +85,7 @@ def generate_wallets(option):
                 print(f"{Fore.RED}{eth_address}: Balance check failed{Style.RESET_ALL}")
 
             print(f"{Fore.CYAN}{'=' * 40}{Style.RESET_ALL}\n")
-            time.sleep(1)
+            time.sleep(2)
     except KeyboardInterrupt:
         print(f"\n{Fore.RED}Process stopped by user. Exiting...{Style.RESET_ALL}")
 
